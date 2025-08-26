@@ -104,12 +104,28 @@ st.markdown("""
 # Initialize OpenAI client
 @st.cache_resource
 def get_openai_client():
-    api_key = os.getenv('OPENAI_API_KEY')
+    # Try to get API key from Streamlit secrets first, then environment variables
+    try:
+        api_key = st.secrets["OPENAI_API_KEY"]
+    except:
+        api_key = os.getenv('OPENAI_API_KEY')
+    
     if not api_key:
-        st.error("⚠️ OpenAI API key not found. Please set the OPENAI_API_KEY environment variable or add it in Streamlit secrets.")
+        st.error("⚠️ OpenAI API key not found. Please add it in Streamlit secrets.")
         st.info("💡 In Streamlit Cloud: Go to App Settings → Secrets and add your API key as:\n```\nOPENAI_API_KEY = \"your-api-key-here\"\n```")
         st.stop()
-    return OpenAI(api_key=api_key)
+    
+    # Validate API key format
+    if not api_key.startswith(('sk-', 'sk-proj-')):
+        st.error("⚠️ Invalid API key format. OpenAI API keys should start with 'sk-' or 'sk-proj-'")
+        st.stop()
+    
+    try:
+        return OpenAI(api_key=api_key)
+    except Exception as e:
+        st.error(f"⚠️ Failed to initialize OpenAI client: {str(e)}")
+        st.info("Please check that your API key is valid and has the correct permissions.")
+        st.stop()
 
 def extract_text_from_file(uploaded_file):
     """Extract text from uploaded file based on file type"""
@@ -181,7 +197,12 @@ def main():
     """, unsafe_allow_html=True)
 
     # Initialize OpenAI client
-    client = get_openai_client()
+    try:
+        client = get_openai_client()
+    except Exception as e:
+        st.error(f"Failed to initialize OpenAI client: {str(e)}")
+        st.info("Please check your API key in the Streamlit secrets.")
+        st.stop()
 
     # File upload section
     st.markdown('<div class="upload-section">', unsafe_allow_html=True)
